@@ -1,0 +1,91 @@
+Executing instruction at 00400000: 24040003
+addiu	$4, $0, 3
+New pc = 00400004
+Updated r04 to 00000003
+No memory location was updated.
+Executing instruction at 00400004: 24050002
+addiu	$5, $0, 2
+New pc = 00400008
+Updated r05 to 00000002
+No memory location was updated.
+Executing instruction at 00400008: 0c100004
+jal	0x00400010
+New pc = 00400010
+Updated r31 to 0040000c
+No memory location was updated.
+Executing instruction at 00400010: 24020000
+addiu	$2, $0, 0
+New pc = 00400014
+Updated r02 to 00000000
+No memory location was updated.
+Executing instruction at 00400014: 10800003
+beq	$4, $0, 0x00400024
+New pc = 00400018
+No register was updated.
+No memory location was updated.
+Executing instruction at 00400018: 00451021
+addu	$2, $2, $5
+New pc = 0040001c
+Updated r02 to 00000002
+No memory location was updated.
+Executing instruction at 0040001c: 2484ffff
+addiu	$4, $4, -1
+New pc = 00400020
+Updated r04 to 00000002
+No memory location was updated.
+Executing instruction at 00400020: 08100005
+j	0x00400014
+New pc = 00400014
+No register was updated.
+No memory location was updated.
+Executing instruction at 00400014: 10800003
+beq	$4, $0, 0x00400024
+New pc = 00400018
+No register was updated.
+No memory location was updated.
+Executing instruction at 00400018: 00451021
+addu	$2, $2, $5
+New pc = 0040001c
+Updated r02 to 00000004
+No memory location was updated.
+Executing instruction at 0040001c: 2484ffff
+addiu	$4, $4, -1
+New pc = 00400020
+Updated r04 to 00000001
+No memory location was updated.
+Executing instruction at 00400020: 08100005
+j	0x00400014
+New pc = 00400014
+No register was updated.
+No memory location was updated.
+Executing instruction at 00400014: 10800003
+beq	$4, $0, 0x00400024
+New pc = 00400018
+No register was updated.
+No memory location was updated.
+Executing instruction at 00400018: 00451021
+addu	$2, $2, $5
+New pc = 0040001c
+Updated r02 to 00000006
+No memory location was updated.
+Executing instruction at 0040001c: 2484ffff
+addiu	$4, $4, -1
+New pc = 00400020
+Updated r04 to 00000000
+No memory location was updated.
+Executing instruction at 00400020: 08100005
+j	0x00400014
+New pc = 00400014
+No register was updated.
+No memory location was updated.
+Executing instruction at 00400014: 10800003
+beq	$4, $0, 0x00400024
+New pc = 00400024
+No register was updated.
+No memory location was updated.
+Executing instruction at 00400024: 03e00008
+jr	$31
+New pc = 0040000c
+No register was updated.
+No memory location was updated.
+Executing instruction at 0040000c: 20000000
