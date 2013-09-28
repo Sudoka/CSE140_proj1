@@ -12,6 +12,8 @@ typedef struct SimulatedComputer Computer;
 
 typedef enum { R=0, I, J } InstrType;
 
+typedef enum { ADD = 0, SUB, AND, OR, SHIFT} ALUType;
+
 typedef struct {
   int rs;
   int rt;
