@@ -184,8 +184,13 @@ unsigned int Fetch ( int addr) {
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
   unsigned int tmp, opcode, funct, shamt, rs, rt, rd, target, immed;
-  int i;
-  int bits[6];
+  int i, rtype = 0;
+  int jal, j, jr, addu, addiu, subu, sll, srl, and, andi, or, ori, lui, slt, beq, bne, lw, sw;
+  int ctr_add, ctr_sub, ctr_and, ctr_or;
+  //Array for the funct bits
+  int f[6];
+  //Array for the opcode bits
+  int o[6];
 
   //Default Control values
   ctrl.nPC_sel = '4';
@@ -195,6 +200,7 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
   ctrl.ALUSrc = 0;
   ctrl.MemWr = 0;
   ctrl.MemtoReg = 0;
+  ctrl.Jump = 0;
 
   //decode registers (could contain garbage so fill regs w/ appropriate values depending on opcode/funct)
   opcode = instr >> 26;
@@ -232,8 +238,7 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
   
   d->op = opcode;
 
-  if(opcode == 0) {
-    //rtype = 1;
+  if(d->op == 0) {
     //R type instruction (we're using rs, rt, rd, and shamt probably)
     d->type = R;
     d->regs.r.rs = rs;
@@ -241,6 +246,7 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     d->regs.r.rd = rd;
     d->regs.r.shamt = shamt;
     d->regs.r.funct = funct;
+    rtype = 1;
   } else if (d->op != 2 && d->op != 3) {
     d->type = I;
     d->regs.i.rs = rs;
@@ -252,20 +258,74 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
   }
   
   for(i = 0; i < 6; i++) {
-    bits[5-i] = (funct >> i) & 1;
+    f[5-i] = (funct >> i) & 1;
+    o[5-i] = (opcode >> i) & 1;
   }
 
-  if(d->type == R) {
-    printf("Decoded instruction: %8.8x has opcode: %d, rs: %d, rt: %d, rd: %d, shamt: %d, funct: %d -> ", instr, opcode, rs, rt, rd, shamt, funct);
-    for(i = 0; i < 6; i++) {
-      printf("%d", bits[i]);  
-    }
-    printf("\n");
-  } else if(d->type == I) {
-    printf("Decoded instruction: %8.8x has opcode: %d, rs: %d, rt: %d, immed: %d\n", instr, opcode, rs, rt, immed);
-  } else {
-    printf("Decoded instruction: %8.8x has opcode: %d, target: %8.8x\n", instr, opcode, target);
+  //Used boolean algebra to reduce some of the expressions, may go back and reduce further if time
+  j = ~(o[0]|o[1]|o[2]|o[3]|o[5]) & o[4];
+  jal = ~(o[0]|o[1]|o[2]|o[3]) & o[4] & o[5];
+  jr = rtype & f[2] & ~(f[0]|f[1]|f[3]|f[4]|f[5]);
+  addu = rtype & f[0] & f[5] & ~(f[1]|f[2]|f[3]|f[4]);
+  subu = rtype & f[0] & f[4] & f[5] & ~(f[1]|f[2]|f[3]);
+  sll = rtype & ~(f[0]|f[1]|f[2]|f[3]|f[4]|f[5]);
+  srl = rtype & f[4] & ~(f[0]|f[1]|f[2]|f[3]|f[5]);
+  and = rtype & f[0] & f[3] & ~(f[1]|f[2]|f[4]|f[5]);
+  or = rtype & f[0] & f[3] & f[5] & ~(f[1]|f[2]|f[4]);
+  slt = rtype & f[0] & f[2] & f[4] & ~(f[1]|f[3]|f[5]);
+  addiu = o[2] & o[5] & ~(o[0]|o[1]|o[3]|o[4]);
+  andi = o[2] & o[3] & ~(o[0]|o[1]|o[4]|o[5]);
+  ori = o[2] & o[3] & o[5] & ~(o[0]|o[1]|o[4]);
+  lui = o[2] & o[3] & o[4] & o[5] & ~(o[0]|o[1]);
+  beq = o[3] & ~(o[0]|o[1]|o[2]|o[4]|o[5]);
+  bne = o[3] & o[5] & ~(o[0]|o[1]|o[2]|o[4]);
+  lw = o[0] & o[4] & o[5] & ~(o[1]|o[2]|o[3]);
+  sw = o[0] & o[2] & o[4] & o[5] & ~(o[1]|o[3]);
+
+  //Jump triggers
+  ctrl.Jump = j|jal|jr;
+  //RegWr = 1 -> write to reg rd or rt, selected by RegDst
+  ctrl.RegWr = addu|subu|sll|srl|and|or|slt|addiu|andi|ori|lui|lw;
+  //RegDst = 1 -> write to rd, 0 -> write to rt
+  ctrl.RegDst = addu|subu|sll|srl|and|or|slt;
+  //ExtOp = 1 -> SignExt, 0 -> ZeroExt
+  ctrl.ExtOp = lw|sw|addiu;
+  //ALUSrc = 1 -> immed, 0 -> rt
+  ctrl.ALUSrc = addiu|andi|ori|lui|beq|bne|lw|sw;
+  //ALUCtr = 0 -> ADD, 1 -> SUB, 2 -> AND, 3 -> OR
+  ctr_add = addu|addiu|lw|sw;
+  ctr_sub = subu|beq|bne;
+  ctr_and = and|andi;
+  ctr_or = or|ori;
+  if(ctr_add) {
+    ctrl.ALUCtr = 0;
+  } else if(ctr_sub) {
+    ctrl.ALUCtr = 1;
+  } else if(ctr_and) {
+    ctrl.ALUCtr = 2;
+  } else if(ctr_or) {
+    ctrl.ALUCtr = 3;
   }
+  //MemWr = 1 -> Write to mem
+  ctrl.MemWr = sw;
+  //MemtoReg = 1 -> ALU, 0 -> Mem
+  ctrl.MemtoReg = addu|addiu|subu|sll|srl|and|andi|or|ori|lui|slt|jal|lw;
+
+  if(beq|bne) {
+    ctrl.nPC_sel = 'b';
+  } else if(j|jal|jr) {
+    ctrl.nPC_sel = 'j';
+  }
+
+  //Leaving this line in here to remind you to NEVER DO THIS
+  //ctrl.Jump = (~(o[0]|o[1]|o[2]|o[3])&o[4]) | (~(o[0]|o[1]|o[2]|o[3]|o[4]|o[5])&~(f[0]|f[1]|f[3]|f[4]|f[5])&f[2]);
+  //printf("Jump: %d\n", ctrl.Jump);  
+  //RegWr:addu/subu/sll/srl/and/or/slt/addiu/andi/ori/lui/lw
+  //Clusterfuck of bit operations. The first large expression before the | represents all the i-type instruction
+  //EDIT: JUST DON'T DO THIS EVER.
+  //ctrl.RegWr = (~(o[0]|o[1])&o[3]&(~o[4]&((~o[3]&o[5])|(o[3]&~o[5]))|(o[3]&o[5])) | (o[0]&o[4]&o[5]&~(o[1]|o[2]|o[3]))) | (~(o[0]|o[1]|o[2]|o[3]|o[4]|o[5]) & (~(f[0]|f[1]|f[2]|f[3]|f[4]|f[5]) | ;
+
+  printf("nPC_sel: %c, RegWr: %d, RegDst: %d, ExtOp: %d, ALUSrc: %d, ALUCtr: %d, MemWr: %d, MemtoReg: %d, Jump: %d\n", ctrl.nPC_sel, ctrl.RegWr, ctrl.RegDst, ctrl.ExtOp, ctrl.ALUSrc, ctrl.ALUCtr, ctrl.MemWr, ctrl.MemtoReg, ctrl.Jump);
 }
 
 /*
@@ -275,7 +335,7 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
 void PrintInstruction ( DecodedInstr* d) {
     /* Your code goes here */
   //Max size of instruction name + 1
-  printf("Printing instruction\n");
+ 
   char* instr = (char*) malloc(6*sizeof(char));
   switch(d->op) {
   case 0: 
@@ -320,6 +380,9 @@ void PrintInstruction ( DecodedInstr* d) {
   case 5:
     instr = "bne";
     break;
+  case 8:
+    instr = "addi";
+    break;
   case 9:
     instr = "addiu";
     break;
@@ -353,6 +416,8 @@ void PrintInstruction ( DecodedInstr* d) {
       printf("%s\t$%d, $%d, 0x%x\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
     } else if(d->op == 4 || d->op == 5) {
       printf("%s\t$%d, $%d, 0x%08x\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+    } else if(d->op == 8) {
+      printf("%s\t$%d, $%d, %d (nop)\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
     } else {
       printf("%s\t$%d, $%d, %d\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
     }
@@ -374,7 +439,13 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
  * increments by 4 (which we have provided).
  */
 void UpdatePC ( DecodedInstr* d, int val) {
+  if(ctrl.nPC_sel = 'j') {
+
+  } else if(ctrl.nPC_sel = 'b') {
+
+  } else {
     mips.pc+=4;
+  }
     /* Your code goes here */
 }
 

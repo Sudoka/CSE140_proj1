@@ -56,6 +56,7 @@ typedef struct {
   int ALUCtr;
   int MemWr;
   int MemtoReg;
+  int Jump;
 } Control;
 
 void InitComputer (FILE*, int printingRegisters, int printingMemory,
