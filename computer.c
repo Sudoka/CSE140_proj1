@@ -18,6 +18,7 @@ void PrintInstruction (DecodedInstr*);
 /*Globally accessible Computer variable*/
 Computer mips;
 RegVals rVals;
+Control ctrl;
 
 /*
  *  Return an initialized computer with the stack pointer set to the
@@ -44,6 +45,7 @@ void InitComputer (FILE* filein, int printingRegisters, int printingMemory,
     }
 
     k = 0;
+    //Read next instruction w/ size 4 bytes (int) into buffer instr from file
     while (fread(&instr, 4, 1, filein)) {
 	/*swap to big endian, convert to host byte order. Ignore this.*/
         mips.memory[k] = ntohl(endianSwap(instr));
@@ -181,6 +183,89 @@ unsigned int Fetch ( int addr) {
 /* Decode instr, returning decoded instruction. */
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
+  unsigned int tmp, opcode, funct, shamt, rs, rt, rd, target, immed;
+  int i;
+  int bits[6];
+
+  //Default Control values
+  ctrl.nPC_sel = '4';
+  ctrl.RegWr = 0;
+  ctrl.RegDst = 0;
+  ctrl.ExtOp = 0;
+  ctrl.ALUSrc = 0;
+  ctrl.MemWr = 0;
+  ctrl.MemtoReg = 0;
+
+  //decode registers (could contain garbage so fill regs w/ appropriate values depending on opcode/funct)
+  opcode = instr >> 26;
+  //rs register
+  tmp = instr << 6;
+  tmp = tmp >> 27;
+  rs = tmp;
+  //rt register
+  tmp = instr << 11;
+  tmp = tmp >> 27;
+  rt = tmp;
+  //rd register
+  tmp = instr << 16;
+  tmp = tmp >> 27;
+  rd = tmp;
+  //shift amount
+  tmp = instr << 21;
+  tmp = tmp >> 27;
+  shamt = tmp;
+  //function field
+  tmp = instr << 26;
+  tmp = tmp >> 26;
+  funct = tmp;
+  //immediate
+  tmp = instr << 16;
+  tmp = tmp >> 16;
+  immed = tmp;
+  //target address
+  tmp = instr << 6;
+  tmp = tmp >> 4;
+  target = tmp;
+  tmp = mips.pc >> 28;
+  tmp = tmp << 28;
+  target = target | tmp;
+  
+  d->op = opcode;
+
+  if(opcode == 0) {
+    //rtype = 1;
+    //R type instruction (we're using rs, rt, rd, and shamt probably)
+    d->type = R;
+    d->regs.r.rs = rs;
+    d->regs.r.rt = rt;
+    d->regs.r.rd = rd;
+    d->regs.r.shamt = shamt;
+    d->regs.r.funct = funct;
+  } else if (d->op != 2 && d->op != 3) {
+    d->type = I;
+    d->regs.i.rs = rs;
+    d->regs.i.rt = rt;
+    d->regs.i.addr_or_immed = immed;
+  } else {
+    d->type = J;
+    d->regs.j.target = target;
+  }
+  
+  for(i = 0; i < 6; i++) {
+    bits[5-i] = (funct >> i) & 1;
+  }
+
+  if(d->type == R) {
+    printf("Decoded instruction: %8.8x has opcode: %d, rs: %d, rt: %d, rd: %d, shamt: %d, funct: %d -> ", instr, opcode, rs, rt, rd, shamt, funct);
+    for(i = 0; i < 6; i++) {
+      printf("%d", bits[i]);  
+    }
+    printf("\n");
+  } else if(d->type == I) {
+    printf("Decoded instruction: %8.8x has opcode: %d, rs: %d, rt: %d, immed: %d\n", instr, opcode, rs, rt, immed);
+  } else {
+    printf("Decoded instruction: %8.8x has opcode: %d, target: %8.8x\n", instr, opcode, target);
+  }
 }
 
 /*
@@ -189,6 +274,92 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
  */
 void PrintInstruction ( DecodedInstr* d) {
     /* Your code goes here */
+  //Max size of instruction name + 1
+  printf("Printing instruction\n");
+  char* instr = (char*) malloc(6*sizeof(char));
+  switch(d->op) {
+  case 0: 
+    switch(d->regs.r.funct) {
+    case 0:
+      instr = "sll";
+      break;
+    case 2:
+      instr = "srl";
+      break;
+    case 8:
+      instr = "jr";
+      break;
+    case 33:
+      instr = "addu";
+      break;
+    case 35:
+      instr = "subu";
+      break;
+    case 36:
+      instr = "and";
+      break;
+    case 37:
+      instr = "or";
+      break;
+    case 42:
+      instr = "slt";
+      break;
+    default:
+      break;
+    }
+    break;
+  case 2:
+    instr = "j";
+    break;
+  case 3:
+    instr = "jal";
+    break;
+  case 4:
+    instr = "beq";
+    break;
+  case 5:
+    instr = "bne";
+    break;
+  case 9:
+    instr = "addiu";
+    break;
+  case 12:
+    instr = "andi";
+    break;
+  case 13:
+    instr = "ori";
+    break;
+  case 15:
+    instr = "lui";
+    break;
+  case 35:
+    instr = "lw";
+    break;
+  case 43:
+    instr = "sw";
+    break;
+  default:
+    break;
+  }
+
+  //instr[5] = 0;
+
+  if(d->type == R) {
+    printf("%s\t$%d, $%d, $%d\n", instr, d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
+  } else if(d->type == I) {
+    if(d->op == 35 || d->op == 43) {
+      printf("%s\t$%d, %d($%d)\n", instr, d->regs.i.rt, d->regs.i.addr_or_immed, d->regs.i.rs);
+    } else if(d->op == 12 || d->op == 13 || d->op == 15){
+      printf("%s\t$%d, $%d, 0x%x\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+    } else if(d->op == 4 || d->op == 5) {
+      printf("%s\t$%d, $%d, 0x%08x\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+    } else {
+      printf("%s\t$%d, $%d, %d\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+    }
+  } else {
+    printf("%s\t0x%8.8x\n", instr, d->regs.j.target);
+  }  
+  
 }
 
 /* Perform computation needed to execute d, returning computed value */

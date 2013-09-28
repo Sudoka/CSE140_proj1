@@ -46,6 +46,18 @@ typedef struct {
   int R_rd;
 } RegVals;
 
+typedef struct {
+  char nPC_sel;
+  //int rtype;
+  int RegWr;
+  int RegDst;
+  int ExtOp;
+  int ALUSrc;
+  int ALUCtr;
+  int MemWr;
+  int MemtoReg;
+} Control;
+
 void InitComputer (FILE*, int printingRegisters, int printingMemory,
     int debugging, int interactive);
 void Simulate ();
