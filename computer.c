@@ -19,7 +19,7 @@ void PrintInstruction (DecodedInstr*);
 Computer mips;
 RegVals rVals;
 Control ctrl;
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  Return an initialized computer with the stack pointer set to the
  *  address of the end of data memory, the remaining registers initialized
@@ -61,11 +61,11 @@ void InitComputer (FILE* filein, int printingRegisters, int printingMemory,
   mips.interactive = interactive;
   mips.debugging = debugging;
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 unsigned int endianSwap(unsigned int i) {
   return (i>>24)|(i>>8&0x0000ff00)|(i<<8&0x00ff0000)|(i<<24);
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  Run the simulation.
  */
@@ -89,7 +89,7 @@ void Simulate () {
     /* Fetch instr at mips.pc, returning it in instr */
     instr = Fetch (mips.pc);
 
-    printf ("Executing instruction at %8.8x: %8.8x\n", mips.pc, instr);
+    printf ("Executing instruction at %08x: %08x\n", mips.pc, instr);
 
     /* 
      * Decode instr, putting decoded instr in d
@@ -127,7 +127,7 @@ void Simulate () {
     PrintInfo (changedReg, changedMem);
   }
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  Print relevant information about the state of the computer.
  *  changedReg is the index of the register changed by the instruction
@@ -140,15 +140,15 @@ void Simulate () {
  */
 void PrintInfo ( int changedReg, int changedMem) {
   int k, addr;
-  printf ("New pc = %8.8x\n", mips.pc);
+  printf ("New pc = %08x\n", mips.pc);
   if (!mips.printingRegisters && changedReg == -1) {
     printf ("No register was updated.\n");
   } else if (!mips.printingRegisters) {
-    printf ("Updated r%2.2d to %8.8x\n",
+    printf ("Updated r%2.2d to %08x\n",
 	    changedReg, mips.registers[changedReg]);
   } else {
     for (k=0; k<32; k++) {
-      printf ("r%2.2d: %8.8x  ", k, mips.registers[k]);
+      printf ("r%2.2d: %08x  ", k, mips.registers[k]);
       if ((k+1)%4 == 0) {
 	printf ("\n");
       }
@@ -157,7 +157,7 @@ void PrintInfo ( int changedReg, int changedMem) {
   if (!mips.printingMemory && changedMem == -1) {
     printf ("No memory location was updated.\n");
   } else if (!mips.printingMemory) {
-    printf ("Updated memory at address %8.8x to %8.8x\n",
+    printf ("Updated memory at address %08x to %08x\n",
 	    changedMem, Fetch (changedMem));
   } else {
     printf ("Nonzero memory\n");
@@ -166,12 +166,12 @@ void PrintInfo ( int changedReg, int changedMem) {
 	 addr < 0x00400000+4*(MAXNUMINSTRS+MAXNUMDATA);
 	 addr = addr+4) {
       if (Fetch (addr) != 0) {
-	printf ("%8.8x  %8.8x\n", addr, Fetch (addr));
+	printf ("%08x  %08x\n", addr, Fetch (addr));
       }
     }
   }
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  Return the contents of memory at the given address. Simulates
  *  instruction fetch. 
@@ -328,32 +328,22 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     d->regs.j.target = target;
   }
 
-  //Leaving this line in here to remind you to NEVER DO THIS
-  //ctrl.Jump = (~(o[0]|o[1]|o[2]|o[3])&o[4]) | (~(o[0]|o[1]|o[2]|o[3]|o[4]|o[5])&~(f[0]|f[1]|f[3]|f[4]|f[5])&f[2]);
-  //printf("Jump: %d\n", ctrl.Jump);  
-  //RegWr:addu/subu/sll/srl/and/or/slt/addiu/andi/ori/lui/lw
-  //Clusterfuck of bit operations. The first large expression before the | represents all the i-type instruction
-  //EDIT: JUST DON'T DO THIS EVER.
-  //ctrl.RegWr = (~(o[0]|o[1])&o[3]&(~o[4]&((~o[3]&o[5])|(o[3]&~o[5]))|(o[3]&o[5])) | (o[0]&o[4]&o[5]&~(o[1]|o[2]|o[3]))) | (~(o[0]|o[1]|o[2]|o[3]|o[4]|o[5]) & (~(f[0]|f[1]|f[2]|f[3]|f[4]|f[5]) | ;
-
-  //printf("nPC_sel: %c, RegWr: %d, RegDst: %d, ExtOp: %d, ALUSrc: %d, ALUCtr: %d, MemWr: %d, MemtoReg: %d, Jump: %d\n", ctrl.nPC_sel, ctrl.RegWr, ctrl.RegDst, ctrl.ExtOp, ctrl.ALUSrc, ctrl.ALUCtr, ctrl.MemWr, ctrl.MemtoReg, ctrl.Jump);
-  
-
+  //Leaving this line in here to remind you that if you try to write out the boolean algebraic expressions for these flags and try to simplify them, you're going to have a bad day.
+  //ctrl.Jump = (~(o[0]|o[1]|o[2]|o[3])&o[4]) | (~(o[0]|o[1]|o[2]|o[3]|o[4]|o[5])&~(f[0]|f[1]|f[3]|f[4]|f[5])&f[2]);  
+  //Update rVals struct
   rVals->R_rs = mips.registers[rs];
   rVals->R_rt = mips.registers[rt];
   rVals->R_rd = mips.registers[rd];
 
-  if(d->type == R) {
-    printf("R-type instruction: rs: %d, rt: %d, rd: %d contains %d, %d, %d\n", rs, rt, rd, rVals->R_rs, rVals->R_rt, rVals->R_rd);
-  } else if(d->type == I) {
-    printf("I-type instruction: rs: %d, rt: %d, immed: 0x%8.8x contains %d, %d\n", rs, rt, immed, rVals->R_rs, rVals->R_rt);
-  } else if(d->type == J) {
-    printf("J-type instruction: target: 0x%8.8x\n", target);
-  }
-
-
+  /* if(d->type == R) { */
+  /*   printf("R-type instruction: rs: %d, rt: %d, rd: %d contains %d, %d, %d\n", rs, rt, rd, rVals->R_rs, rVals->R_rt, rVals->R_rd); */
+  /* } else if(d->type == I) { */
+  /*   printf("I-type instruction: rs: %d, rt: %d, immed: 0x%08x contains %d, %d\n", rs, rt, immed, rVals->R_rs, rVals->R_rt); */
+  /* } else if(d->type == J) { */
+  /*   printf("J-type instruction: target: 0x%08x\n", target); */
+  /* } */
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /*
  *  Print the disassembled version of the given instruction
  *  followed by a newline.
@@ -433,7 +423,7 @@ void PrintInstruction ( DecodedInstr* d) {
 
   if(supported == 0) {
     printf("Unsupported instruction. Terminating.\n");
-    exit(1);    
+    exit(0);    
   }
 
   if(d->type == R) {
@@ -444,21 +434,21 @@ void PrintInstruction ( DecodedInstr* d) {
     } else if(d->op == 12 || d->op == 13 || d->op == 15){
       printf("%s\t$%d, $%d, 0x%x\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
     } else if(d->op == 4 || d->op == 5) {
-      printf("%s\t$%d, $%d, 0x%08x\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+       printf("%s\t$%d, $%d, 0x%08x\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
     } else {
       printf("%s\t$%d, $%d, %d\n", instr, d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
     }
   } else if(d->type == J) {
-    printf("%s\t0x%8.8x\n", instr, d->regs.j.target);
+    printf("%s\t0x%08x\n", instr, d->regs.j.target);
   } 
   
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /* Perform computation needed to execute d, returning computed value */
 int Execute ( DecodedInstr* d, RegVals* rVals) {
   /* Your code goes here */
   int rs, rt, shamt, immed, diff, result;
-
+  //Load values
   if(d->type == R) {
     rs = d->regs.r.rs;
     rt = d->regs.r.rt;
@@ -468,7 +458,7 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
     rt = d->regs.i.rt;
     immed = d->regs.i.addr_or_immed;
   }
-
+  //Handle R, I, J type instructions
   if(d->type == R) {
     if(ctrl.ALUCtr == ADD) {
       result = mips.registers[rs] + mips.registers[rt];
@@ -517,13 +507,13 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
   } else if(d->type == J) {
     if(d->op == 3) {//jal
       result = mips.pc + 4;
-      printf("Updating Reg 31 to 0x%8.8x\n", result);
+      //printf("Updating Reg 31 to 0x%08x\n", result);
     }
   }
 
   return result;
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /* 
  * Update the program counter based on the current instruction. For
  * instructions other than branches and jumps, for example, the PC
@@ -532,20 +522,20 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
 void UpdatePC ( DecodedInstr* d, int val) {
   /* Your code goes here */  
   if(ctrl.nPC_sel == 'j') {
-    printf("Jump instruction\n");
+    //printf("Jump instruction\n");
     if(d->type == R) {
       mips.pc = val;
     } else {
       mips.pc = d->regs.j.target;
     }
   } else if(ctrl.nPC_sel == 'b') {
-    printf("Branch instruction\n");
+    //printf("Branch instruction\n");
     mips.pc = val;
   } else {
     mips.pc+=4;
   }
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /*
  * Perform memory load or store. Place the address of any updated memory 
  * in *changedMem, otherwise put -1 in *changedMem. Return any memory value 
@@ -560,18 +550,21 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
   /* Your code goes here */
   //if lw or sw then deal with memory. Otherwise don't touch val
   int rt;
+  //Default to no changes
+  *changedMem = -1;
 
   rt = d->regs.i.rt;
   if(d->op == 43) {
     if(val < 0x00401000 || val > 0x00403fff || val % 4 != 0) {
-      printf("Memory Access Exception at [0x%8.8x]: address [0x%8.8x]\n", mips.pc, val);
+      printf("Memory Access Exception at [0x%08x]: address [0x%08x]\n", mips.pc, val);
       exit(0);
     }
     mips.memory[val] = mips.registers[rt];
     *changedMem = val;
   } else if(d->op == 35) {
+    //Only lw changes val since it's reading from memory to write to registers
     if(val < 0x00401000 || val > 0x00403fff || val % 4 != 0) {
-      printf("Memory Access Exception at [0x%8.8x]: address [0x%8.8x]\n", mips.pc, val);
+      printf("Memory Access Exception at [0x%08x]: address [0x%08x]\n", mips.pc, val);
       exit(0);
     }
     mips.registers[rt] = mips.memory[val];
@@ -581,7 +574,7 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
 
   return val;
 }
-
+///////////////////////////////////////////////////////////////////////////////////////////
 /* 
  * Write back to register. If the instruction modified a register--
  * (including jal, which modifies $ra) --
@@ -590,14 +583,27 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
  */
 void RegWrite( DecodedInstr* d, int val, int *changedReg) {
   /* Your code goes here */
-  //printf("Val is %d\n", val);
-  if(ctrl.RegWr) {
-    //printf("Writing %d\n", val);
-    *changedReg = -1;
+  int rt = 0, rd = 0;
+  if(d->type == R) {
+    rd = d->regs.r.rd;
+  } else if(d->type == I) {
+    rt = d->regs.i.rt;
+  }
+  //Default to no changes
+  *changedReg = -1;
+  if(ctrl.RegWr) {    
+    if(d->type == R) {
+      mips.registers[rd] = val;
+      *changedReg = rd;
+    } else if(d->type == I) {
+      mips.registers[rt] = val;
+      *changedReg = rt;
+    }
+    //Aside from jal, no other jump instructions should write to registers
     if(d->op == 3) {
       mips.registers[31] = val;
       *changedReg = 31;
     }
   }
-  //ctrl.RegWr = addu|subu|sll|srl|and|or|slt|addiu|andi|ori|lui|lw;
+
 }
