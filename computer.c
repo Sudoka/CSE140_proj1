@@ -170,6 +170,7 @@ void PrintInfo ( int changedReg, int changedMem) {
       }
     }
   }
+  printf("\n");
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
 /*
@@ -447,7 +448,7 @@ void PrintInstruction ( DecodedInstr* d) {
 /* Perform computation needed to execute d, returning computed value */
 int Execute ( DecodedInstr* d, RegVals* rVals) {
   /* Your code goes here */
-  int rs, rt, shamt, immed, diff, result;
+  int rs, rt, shamt, immed, diff, result, bitmask, i;
   //Load values
   if(d->type == R) {
     rs = d->regs.r.rs;
@@ -470,6 +471,8 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
 	} else {
 	  result = 0;
 	}
+      } else {
+	result = diff;
       }
     } else if(ctrl.ALUCtr == AND) {
       result = mips.registers[rs] & mips.registers[rt];
@@ -479,7 +482,11 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
       if(d->regs.r.funct == 0) {
 	result = mips.registers[rt] << shamt;
       } else {
-	result = mips.registers[rt] >> shamt;
+	bitmask = 0;
+	for(i = 0; i < 32-shamt; i++) {
+	  bitmask = (bitmask << i) | 1;
+	}
+	result = (mips.registers[rt] >> shamt) & bitmask;
       }
     }
     if(d->regs.r.funct == 8) {      
@@ -487,7 +494,11 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
     }
   } else if(d->type == I) {
     if(ctrl.ALUCtr == ADD) {
-      result = mips.registers[rs] + immed;
+      if(d->op == 35 || d->op == 43) {
+	result = mips.registers[rs] - (immed/4+1)*4;
+      } else {
+	result = mips.registers[rs] + immed;
+      }
     } else if(ctrl.ALUCtr == SUB) {
       diff = mips.registers[rs] - mips.registers[rt];
       if(diff == 0 && d->op == 4) {
@@ -549,25 +560,26 @@ void UpdatePC ( DecodedInstr* d, int val) {
 int Mem( DecodedInstr* d, int val, int *changedMem) {
   /* Your code goes here */
   //if lw or sw then deal with memory. Otherwise don't touch val
-  int rt;
+  int rt, addr;
   //Default to no changes
   *changedMem = -1;
-
+  
   rt = d->regs.i.rt;
   if(d->op == 43) {
-    if(val < 0x00401000 || val > 0x00403fff || val % 4 != 0) {
+    if(val < 0x00401000 || val > 0x00404000 || val % 4 != 0) {
       printf("Memory Access Exception at [0x%08x]: address [0x%08x]\n", mips.pc, val);
       exit(0);
     }
-    mips.memory[val] = mips.registers[rt];
+    addr = (val-0x00400000)/4;
+    mips.memory[addr] = mips.registers[rt];
     *changedMem = val;
   } else if(d->op == 35) {
     //Only lw changes val since it's reading from memory to write to registers
-    if(val < 0x00401000 || val > 0x00403fff || val % 4 != 0) {
+    if(val < 0x00401000 || val > 0x00404000 || val % 4 != 0) {
       printf("Memory Access Exception at [0x%08x]: address [0x%08x]\n", mips.pc, val);
       exit(0);
     }
-    mips.registers[rt] = mips.memory[val];
+    mips.registers[rt] = Fetch(val);
     *changedMem = -1;
     val = mips.registers[rt];
   }
